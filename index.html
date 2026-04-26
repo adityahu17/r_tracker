@@ -111,10 +111,11 @@ return(<div className="setup-shell"><div className="setup-head"><div style={{dis
 </div></div>)}
 
 // ═══ RENT ALERT ═══
-function RentAlert({properties,rentRecords}){const now=new Date(),day=now.getDate(),mk=mkK(now);const mName=now.toLocaleDateString("en-IN",{month:"long",year:"numeric"});const active=properties.filter(isA);if(active.length===0)return null;
+function RentAlert({properties,rentRecords}){const now=new Date(),day=now.getDate(),mk=mkK(now);const mName=now.toLocaleDateString("en-IN",{month:"long",year:"numeric"});const active=properties.filter(isA);
 const statuses=active.map(p=>{const cs=getCurrentStatus(p,rentRecords);return{...p,cs}});
 const unpaid=statuses.filter(s=>s.cs&&(s.cs.status==="unpaid"||s.cs.status==="partial"));
 const[expanded,setExpanded]=useState(day>=10&&unpaid.length>0);
+if(active.length===0)return null;
 if(day<10&&unpaid.length===0)return null;
 const isUrg=day>=10&&unpaid.length>0;
 return(<div style={{background:isUrg?"#fff5f5":"#f0faf0",border:isUrg?"2px solid #ffcdd2":"2px solid #c8e6c9",borderRadius:18,padding:0,marginBottom:14,overflow:"hidden",animation:"slideUp .3s ease"}}>
@@ -215,8 +216,9 @@ return(<div className="shell"><div className="topbar"><div className="tl"><butto
 
 // ═══ PROPERTY DETAIL — SWIPEABLE 2 PAGES ═══
 function Detail({state:s,dispatch:d,sheetUrl}){
-const p=s.properties.find(p=>String(p.id)===String(s.selProp));if(!p)return null;
+const p=s.properties.find(p=>String(p.id)===String(s.selProp));
 const[page,setPage]=useState(0); // 0=Overview, 1=Details
+if(!p)return null;
 const recs=s.rentRecords.filter(r=>String(r.propertyId)===String(p.id));
 const total=recs.reduce((a,r)=>a+Number(r.amount),0);
 const own=isOwner(p);
