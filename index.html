@@ -208,11 +208,12 @@ const[err,setErr]=useState({});const[saving,setSaving]=useState(false);
 const[slabs,setSlabs]=useState(()=>{try{const s=ed&&ed.rentSlabs?JSON.parse(typeof ed.rentSlabs==="string"?ed.rentSlabs:JSON.stringify(ed.rentSlabs)):[];return Array.isArray(s)?s:[]}catch{return[]}});
 
 const duration=f.startDate&&f.endDate?getMonthsBetween(f.startDate,f.endDate):0;
-const showSlabs=duration>11;
+const canHaveSlabs=duration>11;
+const[enableSlabs,setEnableSlabs]=useState(()=>ed&&parseSlabs(ed)?true:false);
 
 // Auto-generate first slab when duration crosses 11 months
 useEffect(()=>{
-  if(showSlabs&&slabs.length===0&&f.startDate&&f.endDate&&f.rentAmount){
+  if(canHaveSlabs&&enableSlabs&&slabs.length===0&&f.startDate&&f.endDate&&f.rentAmount){
     const start=new Date(f.startDate);const end=new Date(f.endDate);const rent=Number(f.rentAmount);
     const newSlabs=[];let cur=new Date(start);
     while(cur<end){
@@ -224,14 +225,14 @@ useEffect(()=>{
     }
     setSlabs(newSlabs);
   }
-},[showSlabs,f.startDate,f.endDate,f.rentAmount]);
+},[canHaveSlabs,enableSlabs,f.startDate,f.endDate,f.rentAmount]);
 
 const updateSlab=(i,field,val)=>{const ns=[...slabs];ns[i]={...ns[i],[field]:val};setSlabs(ns)};
 const addSlab=()=>{const last=slabs[slabs.length-1];if(last){const nextStart=new Date(last.end);nextStart.setDate(nextStart.getDate()+1);const nextEnd=new Date(nextStart);nextEnd.setMonth(nextEnd.getMonth()+11);const endD=new Date(f.endDate);if(nextEnd>endD)nextEnd.setTime(endD.getTime());setSlabs([...slabs,{start:nextStart.toISOString().split("T")[0],end:nextEnd.toISOString().split("T")[0],rent:Math.round(Number(last.rent)*1.1)}])}else{setSlabs([{start:f.startDate,end:f.endDate,rent:f.rentAmount}])}};
 const removeSlab=i=>{setSlabs(slabs.filter((_,idx)=>idx!==i))};
 
-const val=()=>{const e={};if(!f.name.trim())e.name="Required";if(!f.rentAmount||Number(f.rentAmount)<=0)e.rentAmount="Enter valid amount";if(!f.startDate)e.startDate="Required";if(f.endDate&&f.endDate<f.startDate)e.endDate="Must be after start";if(showSlabs&&slabs.length<2)e.slabs="Add at least 2 slabs for escalation";setErr(e);return!Object.keys(e).length};
-const save=async()=>{if(!val())return;setSaving(true);const pl=ed?{...f}:{...f,id:Date.now().toString()};pl.rentSlabs=showSlabs&&slabs.length>0?JSON.stringify(slabs):"";if(sheetUrl){const r=await sheetPost(sheetUrl,ed?"updateProperty":"addProperty",pl);if(r){d({type:"SD",p:r});d({type:"SV",p:"properties"});setSaving(false);return}}d({type:ed?"LUP":"LAP",p:pl});setSaving(false)};
+const val=()=>{const e={};if(!f.name.trim())e.name="Required";if(!f.rentAmount||Number(f.rentAmount)<=0)e.rentAmount="Enter valid amount";if(!f.startDate)e.startDate="Required";if(f.endDate&&f.endDate<f.startDate)e.endDate="Must be after start";setErr(e);return!Object.keys(e).length};
+const save=async()=>{if(!val())return;setSaving(true);const pl=ed?{...f}:{...f,id:Date.now().toString()};pl.rentSlabs=canHaveSlabs&&enableSlabs&&slabs.length>0?JSON.stringify(slabs):"";if(sheetUrl){const r=await sheetPost(sheetUrl,ed?"updateProperty":"addProperty",pl);if(r){d({type:"SD",p:r});d({type:"SV",p:"properties"});setSaving(false);return}}d({type:ed?"LUP":"LAP",p:pl});setSaving(false)};
 return(<div className="shell"><div className="topbar"><div className="tl"><button className="bbtn" onClick={()=>d({type:"SV",p:"properties"})}>{IC.back}</button><h1>{ed?"Edit":"Add"} Property</h1></div></div>
 <div className="scroll"><div className="card">
 <label className="lbl">Property Name *</label><input className={"inp"+(err.name?" er":"")} placeholder="e.g. Green Valley Apt 301" value={f.name} onChange={e=>setF({...f,name:e.target.value})}/>{err.name&&<span className="ert">{err.name}</span>}
@@ -239,9 +240,16 @@ return(<div className="shell"><div className="topbar"><div className="tl"><butto
 <label className="lbl">Monthly Rent (₹) *</label><input className={"inp"+(err.rentAmount?" er":"")} type="number" placeholder="15000" value={f.rentAmount} onChange={e=>setF({...f,rentAmount:e.target.value})}/>{err.rentAmount&&<span className="ert">{err.rentAmount}</span>}
 <label className="lbl">Security Deposit (₹)</label><input className="inp" type="number" placeholder="50000" value={f.deposit} onChange={e=>setF({...f,deposit:e.target.value})}/>
 <div style={{display:"flex",gap:12}}><div style={{flex:1}}><label className="lbl">Start Date *</label><input className={"inp"+(err.startDate?" er":"")} type="date" value={f.startDate} onChange={e=>setF({...f,startDate:e.target.value})}/>{err.startDate&&<span className="ert">{err.startDate}</span>}</div><div style={{flex:1}}><label className="lbl">End Date</label><input className={"inp"+(err.endDate?" er":"")} type="date" value={f.endDate} onChange={e=>setF({...f,endDate:e.target.value})}/>{err.endDate&&<span className="ert">{err.endDate}</span>}</div></div>
-{duration>0&&<div style={{fontSize:12,color:"var(--muted)",marginTop:6}}>Duration: {duration} months{duration>11?" — rent escalation slabs enabled":""}</div>}
+{duration>0&&<div style={{fontSize:12,color:"var(--muted)",marginTop:6}}>Duration: {duration} months</div>}
 
-{showSlabs&&<div style={{marginTop:14,background:"#f3e5f5",borderRadius:16,padding:16,border:"2px solid #ce93d8"}}>
+{canHaveSlabs&&<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:10,background:"#f3e5f5",borderRadius:12,padding:"10px 14px"}}>
+  <div><div style={{fontSize:13,fontWeight:700,color:"#6a1b9a"}}>📈 Rent Escalation?</div><div style={{fontSize:11,color:"#9c27b0"}}>Agreement is {duration} months — add rent slabs?</div></div>
+  <button onClick={()=>{setEnableSlabs(!enableSlabs);if(enableSlabs)setSlabs([])}} style={{width:48,height:28,borderRadius:14,border:"none",cursor:"pointer",position:"relative",background:enableSlabs?"#7b1fa2":"#bdbdbd",transition:"background .2s"}}>
+    <span style={{width:22,height:22,borderRadius:"50%",background:"#fff",position:"absolute",top:3,left:enableSlabs?23:3,transition:"left .2s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/>
+  </button>
+</div>}
+
+{canHaveSlabs&&enableSlabs&&<div style={{marginTop:14,background:"#f3e5f5",borderRadius:16,padding:16,border:"2px solid #ce93d8"}}>
   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
     <div><div style={{fontSize:13,fontWeight:800,color:"#6a1b9a"}}>📈 Rent Escalation Slabs</div><div style={{fontSize:11,color:"#9c27b0",marginTop:2}}>Define rent for each period</div></div>
   </div>
@@ -259,7 +267,6 @@ return(<div className="shell"><div className="topbar"><div className="tl"><butto
     </div>
   ))}
   <button onClick={addSlab} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,width:"100%",padding:10,borderRadius:12,border:"2px dashed #ce93d8",background:"transparent",color:"#6a1b9a",fontSize:13,fontWeight:700,cursor:"pointer",marginTop:4}}>{IC.plus} Add Slab</button>
-  {err.slabs&&<span className="ert" style={{marginTop:6}}>{err.slabs}</span>}
 </div>}
 <label className="lbl">My Role</label><div className="tog">{["owner","tenant"].map(r=><button key={r} className={"tb"+(f.role===r?" a":"")} onClick={()=>setF({...f,role:r})}><span style={{textTransform:"capitalize"}}>{r}</span></button>)}</div>
 {f.role==="owner"&&<><label className="lbl">Tenant Name</label><input className="inp" placeholder="Tenant's name" value={f.tenantName} onChange={e=>setF({...f,tenantName:e.target.value})}/></>}
